@@ -1,0 +1,39 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Variables de entorno y secretos
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Tests / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Datos locales
+*.db
+*.sqlite
+*.sqlite3
+
+# Salidas de experimentos
+outputs/
+results/
+logs/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
