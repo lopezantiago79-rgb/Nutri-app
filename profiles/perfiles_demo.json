@@ -1,0 +1,26 @@
+{
+  "perfiles": [
+    {
+      "id_perfil": "hiposodico_demo",
+      "nombre": "Hiposódica estricta",
+      "descripcion": "Perfil de demostración.",
+      "reglas_numericas": [
+        {
+          "nutriente": "sodio",
+          "maximo": 120,
+          "unidad": "mg",
+          "por": "porcion",
+          "descripcion": "Sodio ≤ 120 mg por porción"
+        }
+      ],
+      "ingredientes_prohibidos": [],
+      "ingredientes_permitidos": [],
+      "prohibir_azucares_anadidos": true,
+      "prohibir_maltodextrina": true,
+      "prohibir_jarabe_maiz_alta_fructosa": true,
+      "prohibir_gluten": false,
+      "prohibir_leche": false,
+      "prohibir_huevo": false
+    }
+  ]
+}
