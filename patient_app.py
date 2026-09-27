@@ -172,14 +172,14 @@ def cargar_pacientes():
                     else:
                         continue
                     pacientes[paciente.id_paciente] = paciente
-                except Exception as error_validacion:
-                    st.error(f"❌ Error al validar el perfil '{paciente_id}': {error_validacion}")
-        except Exception as error_archivo:
-            st.error(f"❌ Error al leer el archivo JSON: {error_archivo}")
+                except Exception as error_val:
+                    st.error(f"❌ Error al validar {paciente_id}: {error_val}")
+        except Exception as error_json:
+            st.error(f"❌ Error al abrir JSON: {error_json}")
     else:
-        st.warning(f"⚠️ No se encontró {RUTA_PACIENTES}. Cargando paciente de respaldo.")
+        st.info(f"ℹ️ No se encontró el archivo en '{RUTA_PACIENTES}'. Creando perfil automático...")
 
-    # 2. RESPALDO AUTOMÁTICO: Si la lista está vacía, crea un paciente temporal para abrir la UI
+    # 2. RESPALDO DIRECTO: Si no hay pacientes cargados, crea uno garantizado en memoria
     if not pacientes:
         try:
             perfil_demo = PerfilNutricional(
@@ -203,7 +203,7 @@ def cargar_pacientes():
                 perfil=perfil_demo,
             )
         except Exception as error_fallback:
-            st.error(f"❌ Error al crear paciente de respaldo: {error_fallback}")
+            st.error(f"❌ Error al construir perfil de respaldo: {error_fallback}")
 
     return pacientes
 # ============================================================
