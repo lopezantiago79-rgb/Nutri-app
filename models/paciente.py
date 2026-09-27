@@ -6,12 +6,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 import streamlit as st
 
-from ai.gemini import GeminiExtractor
-from ai.mock import MockExtractor
-from models.etiqueta import DatosEtiqueta
-from models.perfil import PerfilNutricional
-from nutrition.evaluator import evaluar_producto
-
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
