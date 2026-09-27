@@ -174,7 +174,8 @@ def cargar_pacientes():
                 continue
                 
             pacientes[paciente.id_paciente] = paciente
-        except Exception:
+       except Exception as e:
+            st.error(f"Error validando {paciente_id}: {e}")
             continue
             
     return pacientes
