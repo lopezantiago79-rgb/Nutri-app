@@ -1,5 +1,3 @@
-import streamlit as st
-st.title("🔥 PROBANDO ACTUALIZACIÓN EN VIVO 🔥")
 import json
 import os
 import tempfile
@@ -8,15 +6,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 import streamlit as st
 
-from ai.gemini import GeminiExtractor
-from ai.mock import MockExtractor
-from models.etiqueta import DatosEtiqueta
-from models.paciente import Paciente
-from models.perfil import PerfilNutricional
-from nutrition.evaluator import evaluar_producto
-
 # ============================================================
-# CONFIGURACIÓN
+# CONFIGURACIÓN (DEBE SER LA PRIMERA LLAMADA A STREAMLIT)
 # ============================================================
 
 load_dotenv()
@@ -27,6 +18,13 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+from ai.gemini import GeminiExtractor
+from ai.mock import MockExtractor
+from models.etiqueta import DatosEtiqueta
+from models.paciente import Paciente
+from models.perfil import PerfilNutricional
+from nutrition.evaluator import evaluar_producto
 
 RUTA_PACIENTES = os.path.join("profiles", "pacientes.json")
 RUTA_HISTORIAL = os.path.join("profiles", "historial.json")
@@ -144,6 +142,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 # ============================================================
 # PACIENTES
 # ============================================================
@@ -173,11 +172,11 @@ def cargar_pacientes():
                         continue
                     pacientes[paciente.id_paciente] = paciente
                 except Exception as error_val:
-                    st.error(f"❌ Error al validar {paciente_id}: {error_val}")
+                    st.error(f"❌ Error al validar paciente/perfil '{paciente_id}': {error_val}")
         except Exception as error_json:
-            st.error(f"❌ Error al abrir JSON: {error_json}")
+            st.error(f"❌ Error al abrir archivo JSON: {error_json}")
     else:
-        st.info(f"ℹ️ No se encontró el archivo en '{RUTA_PACIENTES}'. Creando perfil automático...")
+        st.info(f"ℹ️ No se encontró '{RUTA_PACIENTES}'. Creando perfil de demostración...")
 
     # 2. RESPALDO DIRECTO: Si no hay pacientes cargados, crea uno garantizado en memoria
     if not pacientes:
@@ -204,8 +203,11 @@ def cargar_pacientes():
             )
         except Exception as error_fallback:
             st.error(f"❌ Error al construir perfil de respaldo: {error_fallback}")
+            st.exception(error_fallback)
 
     return pacientes
+
+
 # ============================================================
 # HISTORIAL
 # ============================================================
@@ -288,7 +290,7 @@ def datos_mock():
 def extraer_datos(ruta_imagen):
     if PROVEEDOR == "gemini":
         if not os.getenv("GEMINI_API_KEY"):
-            raise RuntimeError("No se encontró GEMINI_API_KEY.")
+            raise RuntimeError("No se encontró GEMINI_API_KEY en las variables de entorno.")
             
         extractor = GeminiExtractor(model=MODELO_GEMINI)
         datos = extractor.extraer(ruta_imagen)
@@ -415,7 +417,7 @@ def mostrar_resultado(resultado):
 
 
 # ============================================================
-# CARGA
+# CARGA DE DATOS
 # ============================================================
 
 pacientes = cargar_pacientes()
@@ -427,7 +429,7 @@ if not pacientes:
 
 
 # ============================================================
-# ENCABEZADO
+# ENCABEZADO Y LOGO
 # ============================================================
 
 st.markdown(
@@ -461,7 +463,7 @@ elif PROVEEDOR == "mock":
 
 
 # ============================================================
-# PACIENTE
+# PACIENTE Y BARRA LATERAL
 # ============================================================
 
 with st.sidebar:
