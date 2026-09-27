@@ -150,63 +150,63 @@ st.markdown(
 # ============================================================
 
 def cargar_pacientes():
-    # 1. Diagnóstico de carpetas en pantalla
-    if not os.path.exists("profiles"):
-        st.error(f"❌ No existe la carpeta 'profiles'. Archivos en raíz: {os.listdir('.')}")
-    else:
-        archivos_profiles = os.listdir("profiles")
-        st.info(f"📂 Archivos encontrados en 'profiles/': {archivos_profiles}")
-
-    # 2. Intentar cargar desde JSON
     pacientes = {}
+    
+    # 1. Intentar cargar desde el archivo JSON si existe
     if os.path.exists(RUTA_PACIENTES):
         try:
             with open(RUTA_PACIENTES, "r", encoding="utf-8") as archivo:
                 datos = json.load(archivo)
                 
             for paciente_id, datos_paciente in datos.items():
-                if "id_paciente" in datos_paciente:
-                    paciente = Paciente.model_validate(datos_paciente)
-                elif "id_perfil" in datos_paciente:
-                    perfil = PerfilNutricional.model_validate(datos_paciente)
-                    paciente = Paciente(
-                        id_paciente=paciente_id,
-                        nombre=perfil.nombre,
-                        descripcion=perfil.descripcion,
-                        perfil=perfil,
-                    )
-                else:
-                    continue
-                pacientes[paciente.id_paciente] = paciente
-        except Exception as e:
-            st.error(f"❌ Error leyendo/validando JSON: {e}")
+                try:
+                    if "id_paciente" in datos_paciente:
+                        paciente = Paciente.model_validate(datos_paciente)
+                    elif "id_perfil" in datos_paciente:
+                        perfil = PerfilNutricional.model_validate(datos_paciente)
+                        paciente = Paciente(
+                            id_paciente=paciente_id,
+                            nombre=perfil.nombre,
+                            descripcion=perfil.descripcion,
+                            perfil=perfil,
+                        )
+                    else:
+                        continue
+                    pacientes[paciente.id_paciente] = paciente
+                except Exception as error_validacion:
+                    st.error(f"❌ Error al validar el perfil '{paciente_id}': {error_validacion}")
+        except Exception as error_archivo:
+            st.error(f"❌ Error al leer el archivo JSON: {error_archivo}")
+    else:
+        st.warning(f"⚠️ No se encontró {RUTA_PACIENTES}. Cargando paciente de respaldo.")
 
-    # 3. RESPALDO: Si no hay pacientes cargados, crear uno en memoria para destrabar la App
+    # 2. RESPALDO AUTOMÁTICO: Si la lista está vacía, crea un paciente temporal para abrir la UI
     if not pacientes:
-        st.warning("⚠️ Cargando paciente de prueba automático (Fallback)...")
-        perfil_demo = PerfilNutricional(
-            id_perfil="demo",
-            nombre="Paciente Demo",
-            descripcion="Perfil temporal de prueba",
-            reglas_numericas=[],
-            ingredientes_prohibidos=[],
-            ingredientes_permitidos=[],
-            prohibir_azucares_anadidos=False,
-            prohibir_maltodextrina=False,
-            prohibir_jarabe_maiz_alta_fructosa=False,
-            prohibir_gluten=False,
-            prohibir_leche=False,
-            prohibir_huevo=False
-        )
-        pacientes["demo"] = Paciente(
-            id_paciente="demo",
-            nombre="Paciente Demo",
-            descripcion="Perfil temporal",
-            perfil=perfil_demo
-        )
+        try:
+            perfil_demo = PerfilNutricional(
+                id_perfil="hiposodico_demo",
+                nombre="Hiposódica estricta",
+                descripcion="Perfil de demostración temporal",
+                reglas_numericas=[],
+                ingredientes_prohibidos=[],
+                ingredientes_permitidos=[],
+                prohibir_azucares_anadidos=True,
+                prohibir_maltodextrina=True,
+                prohibir_jarabe_maiz_alta_fructosa=True,
+                prohibir_gluten=False,
+                prohibir_leche=False,
+                prohibir_huevo=False,
+            )
+            pacientes["hiposodico_demo"] = Paciente(
+                id_paciente="hiposodico_demo",
+                nombre="Hiposódica estricta",
+                descripcion="Perfil de demostración",
+                perfil=perfil_demo,
+            )
+        except Exception as error_fallback:
+            st.error(f"❌ Error al crear paciente de respaldo: {error_fallback}")
 
     return pacientes
-
 # ============================================================
 # HISTORIAL
 # ============================================================
