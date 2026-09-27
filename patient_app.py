@@ -154,7 +154,8 @@ def cargar_pacientes():
     try:
         with open(RUTA_PACIENTES, "r", encoding="utf-8") as archivo:
             datos = json.load(archivo)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as e:
+        st.error(f"Error al leer el archivo JSON: {e}")
         return {}
         
     pacientes = {}
@@ -171,11 +172,12 @@ def cargar_pacientes():
                     perfil=perfil,
                 )
             else:
+                st.warning(f"Clave no reconocida en {paciente_id}")
                 continue
                 
             pacientes[paciente.id_paciente] = paciente
-       except Exception as e:
-            st.error(f"Error validando {paciente_id}: {e}")
+        except Exception as e:
+            st.error(f"Error validando paciente {paciente_id}: {e}")
             continue
             
     return pacientes
