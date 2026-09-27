@@ -148,40 +148,62 @@ st.markdown(
 # ============================================================
 
 def cargar_pacientes():
-    if not os.path.exists(RUTA_PACIENTES):
-        return {}
-    
-    try:
-        with open(RUTA_PACIENTES, "r", encoding="utf-8") as archivo:
-            datos = json.load(archivo)
-    except (json.JSONDecodeError, OSError) as e:
-        st.error(f"Error al leer el archivo JSON: {e}")
-        return {}
-        
-    pacientes = {}
-    for paciente_id, datos_paciente in datos.items():
-        try:
-            if "id_paciente" in datos_paciente:
-                paciente = Paciente.model_validate(datos_paciente)
-            elif "id_perfil" in datos_paciente:
-                perfil = PerfilNutricional.model_validate(datos_paciente)
-                paciente = Paciente(
-                    id_paciente=paciente_id,
-                    nombre=perfil.nombre,
-                    descripcion=perfil.descripcion,
-                    perfil=perfil,
-                )
-            else:
-                st.warning(f"Clave no reconocida en {paciente_id}")
-                continue
-                
-            pacientes[paciente.id_paciente] = paciente
-        except Exception as e:
-            st.error(f"Error validando paciente {paciente_id}: {e}")
-            continue
-            
-    return pacientes
+    # 1. Diagnóstico de carpetas en pantalla
+    if not os.path.exists("profiles"):
+        st.error(f"❌ No existe la carpeta 'profiles'. Archivos en raíz: {os.listdir('.')}")
+    else:
+        archivos_profiles = os.listdir("profiles")
+        st.info(f"📂 Archivos encontrados en 'profiles/': {archivos_profiles}")
 
+    # 2. Intentar cargar desde JSON
+    pacientes = {}
+    if os.path.exists(RUTA_PACIENTES):
+        try:
+            with open(RUTA_PACIENTES, "r", encoding="utf-8") as archivo:
+                datos = json.load(archivo)
+                
+            for paciente_id, datos_paciente in datos.items():
+                if "id_paciente" in datos_paciente:
+                    paciente = Paciente.model_validate(datos_paciente)
+                elif "id_perfil" in datos_paciente:
+                    perfil = PerfilNutricional.model_validate(datos_paciente)
+                    paciente = Paciente(
+                        id_paciente=paciente_id,
+                        nombre=perfil.nombre,
+                        descripcion=perfil.descripcion,
+                        perfil=perfil,
+                    )
+                else:
+                    continue
+                pacientes[paciente.id_paciente] = paciente
+        except Exception as e:
+            st.error(f"❌ Error leyendo/validando JSON: {e}")
+
+    # 3. RESPALDO: Si no hay pacientes cargados, crear uno en memoria para destrabar la App
+    if not pacientes:
+        st.warning("⚠️ Cargando paciente de prueba automático (Fallback)...")
+        perfil_demo = PerfilNutricional(
+            id_perfil="demo",
+            nombre="Paciente Demo",
+            descripcion="Perfil temporal de prueba",
+            reglas_numericas=[],
+            ingredientes_prohibidos=[],
+            ingredientes_permitidos=[],
+            prohibir_azucares_anadidos=False,
+            prohibir_maltodextrina=False,
+            prohibir_jarabe_maiz_alta_fructosa=False,
+            prohibir_gluten=False,
+            prohibir_leche=False,
+            prohibir_huevo=False
+        )
+        pacientes["demo"] = Paciente(
+            id_paciente="demo",
+            nombre="Paciente Demo",
+            descripcion="Perfil temporal",
+            perfil=perfil_demo
+        )
+
+    return pacientes
 
 # ============================================================
 # HISTORIAL
