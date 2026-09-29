@@ -705,23 +705,6 @@ pacientes = cargar_pacientes()
 
 historial = cargar_historial()
 
-# Salvaguarda final: la aplicación nunca debe quedar bloqueada
-# simplemente porque no exista profiles/pacientes.json.
-if not pacientes:
-
-    paciente_demo = crear_paciente_demo()
-
-    pacientes = {
-        paciente_demo.id_paciente: paciente_demo
-    }
-
-    st.info(
-        "Modo demostración: se está usando un paciente "
-        "de prueba porque todavía no hay pacientes "
-        "configurados en la nube."
-    )
-
-
 # ============================================================
 # ENCABEZADO
 # ============================================================
