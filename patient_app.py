@@ -184,90 +184,106 @@ st.markdown(
 # PACIENTES
 # ============================================================
 
+def crear_paciente_demo():
+
+    perfil_demo = PerfilNutricional(
+        id_perfil="demo_001",
+        nombre="Paciente Demo",
+        descripcion=(
+            "Perfil de demostración para probar "
+            "Nutri App desde el celular."
+        ),
+        reglas_numericas=[],
+        ingredientes_prohibidos=[],
+        ingredientes_permitidos=[],
+        prohibir_azucares_anadidos=False,
+        prohibir_maltodextrina=False,
+        prohibir_jarabe_maiz_alta_fructosa=False,
+        prohibir_gluten=False,
+        prohibir_leche=False,
+        prohibir_huevo=False,
+    )
+
+    return Paciente(
+        id_paciente="demo_001",
+        nombre="Paciente Demo",
+        descripcion=perfil_demo.descripcion,
+        perfil=perfil_demo,
+    )
+
+
 def cargar_pacientes():
-
-    if not os.path.exists(RUTA_PACIENTES):
-        return {}
-
-    try:
-
-        with open(
-            RUTA_PACIENTES,
-            "r",
-            encoding="utf-8",
-        ) as archivo:
-
-            datos = json.load(archivo)
-
-    except (
-        json.JSONDecodeError,
-        OSError,
-    ):
-
-        return {}
 
     pacientes = {}
 
-    for paciente_id, datos_paciente in datos.items():
+    # En Streamlit Cloud normalmente este archivo no contiene
+    # pacientes reales. En ese caso se utilizará un paciente demo.
+
+    if os.path.exists(RUTA_PACIENTES):
 
         try:
 
-            if "id_paciente" in datos_paciente:
+            with open(
+                RUTA_PACIENTES,
+                "r",
+                encoding="utf-8",
+            ) as archivo:
 
-                paciente = Paciente.model_validate(
-                    datos_paciente
-                )
+                datos = json.load(archivo)
 
-            elif "id_perfil" in datos_paciente:
+        except (
+            json.JSONDecodeError,
+            OSError,
+            TypeError,
+        ):
 
-                perfil = PerfilNutricional.model_validate(
-                    datos_paciente
-                )
+            datos = {}
 
-                paciente = Paciente(
-                    id_paciente=paciente_id,
-                    nombre=perfil.nombre,
-                    descripcion=perfil.descripcion,
-                    perfil=perfil,
-                )
+        if isinstance(datos, dict):
 
-            else:
+            for paciente_id, datos_paciente in datos.items():
 
-                continue
+                try:
 
-            pacientes[paciente.id_paciente] = paciente
+                    if "id_paciente" in datos_paciente:
 
-        except Exception:
+                        paciente = Paciente.model_validate(
+                            datos_paciente
+                        )
 
-            continue
+                    elif "id_perfil" in datos_paciente:
 
-    # Si no hay pacientes válidos en el archivo, usamos un paciente demo.
-    # Esto permite probar la versión publicada en Streamlit Cloud sin
-    # subir datos personales reales al repositorio.
+                        perfil = PerfilNutricional.model_validate(
+                            datos_paciente
+                        )
+
+                        paciente = Paciente(
+                            id_paciente=paciente_id,
+                            nombre=perfil.nombre,
+                            descripcion=perfil.descripcion,
+                            perfil=perfil,
+                        )
+
+                    else:
+
+                        continue
+
+                    pacientes[paciente.id_paciente] = paciente
+
+                except Exception:
+
+                    continue
+
+    # Si no existe pacientes.json, está vacío o no contiene
+    # pacientes válidos, creamos un paciente de demostración.
     if not pacientes:
-        paciente_demo_id = "demo_001"
-        perfil_demo = PerfilNutricional(
-            id_perfil=paciente_demo_id,
-            nombre="Paciente Demo",
-            descripcion="Perfil de demostración para probar Nutri App en el celular.",
-            reglas_numericas=[],
-            ingredientes_prohibidos=[],
-            ingredientes_permitidos=[],
-            prohibir_azucares_anadidos=False,
-            prohibir_maltodextrina=False,
-            prohibir_jarabe_maiz_alta_fructosa=False,
-            prohibir_gluten=False,
-            prohibir_leche=False,
-            prohibir_huevo=False,
-        )
-        pacientes[paciente_demo_id] = Paciente(
-            id_paciente=paciente_demo_id,
-            nombre="Paciente Demo",
-            descripcion=perfil_demo.descripcion,
-            perfil=perfil_demo,
-        )
+
+        paciente_demo = crear_paciente_demo()
+
+        pacientes[paciente_demo.id_paciente] = paciente_demo
 
     return pacientes
+
 
 
 # ============================================================
@@ -689,13 +705,21 @@ pacientes = cargar_pacientes()
 
 historial = cargar_historial()
 
+# Salvaguarda final: la aplicación nunca debe quedar bloqueada
+# simplemente porque no exista profiles/pacientes.json.
 if not pacientes:
 
-    st.error(
-        "Todavía no hay pacientes configurados."
-    )
+    paciente_demo = crear_paciente_demo()
 
-    st.stop()
+    pacientes = {
+        paciente_demo.id_paciente: paciente_demo
+    }
+
+    st.info(
+        "Modo demostración: se está usando un paciente "
+        "de prueba porque todavía no hay pacientes "
+        "configurados en la nube."
+    )
 
 
 # ============================================================
