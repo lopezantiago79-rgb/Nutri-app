@@ -57,6 +57,8 @@ if not MODELO_GEMINI:
 # ESTILOS
 # ============================================================
 
+st.success("VERSION NUEVA — DEMO ACTIVA")
+
 st.markdown(
     """
     <style>
