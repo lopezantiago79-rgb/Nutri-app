@@ -50,7 +50,7 @@ MODELO_GEMINI = os.getenv(
 ).strip()
 
 if not MODELO_GEMINI:
-    MODELO_GEMINI = "gemini-2.5-flash"
+    MODELO_GEMINI = "gemini-3.8-flash"
 
 
 # ============================================================
@@ -216,9 +216,6 @@ def cargar_pacientes():
 
     pacientes = {}
 
-    # En Streamlit Cloud normalmente este archivo no contiene
-    # pacientes reales. En ese caso se utilizará un paciente demo.
-
     if os.path.exists(RUTA_PACIENTES):
 
         try:
@@ -231,51 +228,52 @@ def cargar_pacientes():
 
                 datos = json.load(archivo)
 
+            if isinstance(datos, dict):
+
+                for paciente_id, datos_paciente in datos.items():
+
+                    try:
+
+                        if not isinstance(datos_paciente, dict):
+                            continue
+
+                        if "id_paciente" in datos_paciente:
+
+                            paciente = Paciente.model_validate(
+                                datos_paciente
+                            )
+
+                        elif "id_perfil" in datos_paciente:
+
+                            perfil = PerfilNutricional.model_validate(
+                                datos_paciente
+                            )
+
+                            paciente = Paciente(
+                                id_paciente=paciente_id,
+                                nombre=perfil.nombre,
+                                descripcion=perfil.descripcion,
+                                perfil=perfil,
+                            )
+
+                        else:
+                            continue
+
+                        pacientes[paciente.id_paciente] = paciente
+
+                    except Exception:
+                        continue
+
         except (
             json.JSONDecodeError,
             OSError,
             TypeError,
         ):
 
-            datos = {}
+            pacientes = {}
 
-        if isinstance(datos, dict):
-
-            for paciente_id, datos_paciente in datos.items():
-
-                try:
-
-                    if "id_paciente" in datos_paciente:
-
-                        paciente = Paciente.model_validate(
-                            datos_paciente
-                        )
-
-                    elif "id_perfil" in datos_paciente:
-
-                        perfil = PerfilNutricional.model_validate(
-                            datos_paciente
-                        )
-
-                        paciente = Paciente(
-                            id_paciente=paciente_id,
-                            nombre=perfil.nombre,
-                            descripcion=perfil.descripcion,
-                            perfil=perfil,
-                        )
-
-                    else:
-
-                        continue
-
-                    pacientes[paciente.id_paciente] = paciente
-
-                except Exception:
-
-                    continue
-
-    # Si no existe pacientes.json, está vacío o no contiene
-    # pacientes válidos, creamos un paciente de demostración.
+    # En la nube puede no existir pacientes.json.
+    # En ese caso usamos un paciente de demostración para no bloquear la app.
     if not pacientes:
 
         paciente_demo = crear_paciente_demo()
@@ -283,7 +281,6 @@ def cargar_pacientes():
         pacientes[paciente_demo.id_paciente] = paciente_demo
 
     return pacientes
-
 
 
 # ============================================================
@@ -704,6 +701,12 @@ def mostrar_resultado(
 pacientes = cargar_pacientes()
 
 historial = cargar_historial()
+
+# Salvaguarda: la aplicación nunca queda bloqueada por falta de pacientes.
+if not pacientes:
+    paciente_demo = crear_paciente_demo()
+    pacientes[paciente_demo.id_paciente] = paciente_demo
+
 
 # ============================================================
 # ENCABEZADO
