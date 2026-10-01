@@ -22,6 +22,18 @@ from nutrition.evaluator import evaluar_producto
 
 load_dotenv()
 
+APP_VERSION = "2.0.0"
+
+PROVEEDOR = os.getenv("AI_PROVIDER", "gemini").strip().lower()
+
+MODELO_GEMINI = os.getenv("AI_MODEL", "").strip()
+if not MODELO_GEMINI:
+    MODELO_GEMINI = "gemini-3.8-flash"
+
+RUTA_PACIENTES = os.path.join("profiles", "pacientes.json")
+RUTA_HISTORIAL = os.path.join("profiles", "historial.json")
+
+
 st.set_page_config(
     page_title="Nutri App",
     page_icon="🥗",
@@ -29,40 +41,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-RUTA_PACIENTES = os.path.join(
-    "profiles",
-    "pacientes.json",
-)
-
-RUTA_HISTORIAL = os.path.join(
-    "profiles",
-    "historial.json",
-)
-
-PROVEEDOR = os.getenv(
-    "AI_PROVIDER",
-    "gemini",
-).strip().lower()
-
-MODELO_GEMINI = os.getenv(
-    "AI_MODEL",
-    "",
-).strip()
-
-if not MODELO_GEMINI:
-    MODELO_GEMINI = "gemini-3.8-flash"
-
 
 # ============================================================
 # ESTILOS
 # ============================================================
 
-st.success("VERSION NUEVA — DEMO ACTIVA")
-
 st.markdown(
     """
     <style>
-
     .block-container {
         max-width: 520px;
         padding-top: 1rem;
@@ -81,14 +67,14 @@ st.markdown(
         text-align: center;
         color: #667085;
         font-size: 1rem;
-        margin-bottom: .4rem;
+        margin-bottom: .25rem;
     }
 
     .nutri-provider {
         text-align: center;
         color: #667085;
-        font-size: .82rem;
-        margin-bottom: 1.2rem;
+        font-size: .80rem;
+        margin-bottom: 1rem;
     }
 
     .scan-card {
@@ -175,7 +161,6 @@ st.markdown(
         color: #9a6700;
         font-weight: 700;
     }
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -183,23 +168,48 @@ st.markdown(
 
 
 # ============================================================
-# PACIENTES
+# PACIENTE DEMO
 # ============================================================
 
-def crear_paciente_demo():
+def crear_paciente_demo() -> Paciente:
+    """Crea un paciente sintético para que la nube pueda funcionar sin datos personales."""
 
     perfil_demo = PerfilNutricional(
         id_perfil="demo_001",
         nombre="Paciente Demo",
         descripcion=(
-            "Perfil de demostración para probar "
-            "Nutri App desde el celular."
+            "Perfil de demostración para probar Nutri App desde el celular."
         ),
-        reglas_numericas=[],
+        reglas_numericas=[
+            {
+                "nutriente": "sodio",
+                "maximo": 120,
+                "minimo": None,
+                "unidad": "mg",
+                "por": "porcion",
+                "descripcion": "Sodio ≤ 120 mg por porción",
+            },
+            {
+                "nutriente": "calcio",
+                "maximo": 5,
+                "minimo": None,
+                "unidad": "mg",
+                "por": "porcion",
+                "descripcion": "Calcio ≤ 5 mg por porción",
+            },
+            {
+                "nutriente": "hierro",
+                "maximo": None,
+                "minimo": 3,
+                "unidad": "mg",
+                "por": "porcion",
+                "descripcion": "Hierro ≥ 3 mg por porción",
+            },
+        ],
         ingredientes_prohibidos=[],
         ingredientes_permitidos=[],
         prohibir_azucares_anadidos=False,
-        prohibir_maltodextrina=False,
+        prohibir_maltodextrina=True,
         prohibir_jarabe_maiz_alta_fructosa=False,
         prohibir_gluten=False,
         prohibir_leche=False,
@@ -214,72 +224,54 @@ def crear_paciente_demo():
     )
 
 
-def cargar_pacientes():
+# ============================================================
+# CARGA DE PACIENTES
+# ============================================================
 
-    pacientes = {}
+def cargar_pacientes() -> dict[str, Paciente]:
+    """Carga pacientes reales cuando están disponibles; si no, usa un demo."""
+
+    pacientes: dict[str, Paciente] = {}
 
     if os.path.exists(RUTA_PACIENTES):
-
         try:
-
-            with open(
-                RUTA_PACIENTES,
-                "r",
-                encoding="utf-8",
-            ) as archivo:
-
+            with open(RUTA_PACIENTES, "r", encoding="utf-8") as archivo:
                 datos = json.load(archivo)
 
-            if isinstance(datos, dict):
+            if isinstance(datos, dict) and isinstance(datos.get("pacientes"), dict):
+                datos_pacientes = datos["pacientes"]
+            elif isinstance(datos, dict):
+                datos_pacientes = datos
+            else:
+                datos_pacientes = {}
 
-                for paciente_id, datos_paciente in datos.items():
-
-                    try:
-
-                        if not isinstance(datos_paciente, dict):
-                            continue
-
-                        if "id_paciente" in datos_paciente:
-
-                            paciente = Paciente.model_validate(
-                                datos_paciente
-                            )
-
-                        elif "id_perfil" in datos_paciente:
-
-                            perfil = PerfilNutricional.model_validate(
-                                datos_paciente
-                            )
-
-                            paciente = Paciente(
-                                id_paciente=paciente_id,
-                                nombre=perfil.nombre,
-                                descripcion=perfil.descripcion,
-                                perfil=perfil,
-                            )
-
-                        else:
-                            continue
-
-                        pacientes[paciente.id_paciente] = paciente
-
-                    except Exception:
+            for paciente_id, datos_paciente in datos_pacientes.items():
+                try:
+                    if not isinstance(datos_paciente, dict):
                         continue
 
-        except (
-            json.JSONDecodeError,
-            OSError,
-            TypeError,
-        ):
+                    if "id_paciente" in datos_paciente:
+                        paciente = Paciente.model_validate(datos_paciente)
+                    elif "id_perfil" in datos_paciente:
+                        perfil = PerfilNutricional.model_validate(datos_paciente)
+                        paciente = Paciente(
+                            id_paciente=str(paciente_id),
+                            nombre=perfil.nombre,
+                            descripcion=perfil.descripcion,
+                            perfil=perfil,
+                        )
+                    else:
+                        continue
 
-            pacientes = {}
+                    pacientes[paciente.id_paciente] = paciente
+                except Exception:
+                    continue
+        except (json.JSONDecodeError, OSError):
+            pass
 
-    # En la nube puede no existir pacientes.json.
-    # En ese caso usamos un paciente de demostración para no bloquear la app.
+    # Nunca bloqueamos la app por falta de pacientes.
     if not pacientes:
-
         paciente_demo = crear_paciente_demo()
-
         pacientes[paciente_demo.id_paciente] = paciente_demo
 
     return pacientes
@@ -289,112 +281,46 @@ def cargar_pacientes():
 # HISTORIAL
 # ============================================================
 
-def cargar_historial():
-
+def cargar_historial() -> dict:
     if not os.path.exists(RUTA_HISTORIAL):
         return {}
 
     try:
-
-        with open(
-            RUTA_HISTORIAL,
-            "r",
-            encoding="utf-8",
-        ) as archivo:
-
-            return json.load(archivo)
-
-    except (
-        json.JSONDecodeError,
-        OSError,
-    ):
-
+        with open(RUTA_HISTORIAL, "r", encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+            return datos if isinstance(datos, dict) else {}
+    except (json.JSONDecodeError, OSError):
         return {}
 
 
-def guardar_historial(historial):
+def guardar_historial(historial: dict) -> None:
+    os.makedirs("profiles", exist_ok=True)
 
-    os.makedirs(
-        "profiles",
-        exist_ok=True,
-    )
-
-    with open(
-        RUTA_HISTORIAL,
-        "w",
-        encoding="utf-8",
-    ) as archivo:
-
-        json.dump(
-            historial,
-            archivo,
-            indent=2,
-            ensure_ascii=False,
-        )
+    with open(RUTA_HISTORIAL, "w", encoding="utf-8") as archivo:
+        json.dump(historial, archivo, indent=2, ensure_ascii=False)
 
 
-def guardar_analisis(
-    historial,
-    paciente,
-    resultado,
-    perfil,
-):
-
+def guardar_analisis(historial, paciente, resultado, perfil) -> None:
     paciente_id = paciente.id_paciente
 
-    historial.setdefault(
-        paciente_id,
-        [],
-    )
+    historial.setdefault(paciente_id, [])
 
     historial[paciente_id].append(
         {
-            "fecha_hora":
-                datetime.now()
-                .astimezone()
-                .isoformat(
-                    timespec="seconds"
-                ),
-
-            "producto":
-                resultado.producto_detectado
-                or "No identificado",
-
-            "estado":
-                resultado.estado.value,
-
-            "motivo":
-                resultado.motivo,
-
-            "reglas_incumplidas":
-                resultado.reglas_incumplidas,
-
-            "advertencias":
-                resultado.advertencias,
-
-            "datos_extraidos":
-                resultado.datos_extraidos.model_dump(
-                    mode="json"
-                ),
-
+            "fecha_hora": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "producto": resultado.producto_detectado or "No identificado",
+            "estado": resultado.estado.value,
+            "motivo": resultado.motivo,
+            "reglas_incumplidas": resultado.reglas_incumplidas,
+            "advertencias": resultado.advertencias,
+            "datos_extraidos": resultado.datos_extraidos.model_dump(mode="json"),
             "reglas_evaluadas": [
-                regla.model_dump(
-                    mode="json"
-                )
-                for regla
-                in resultado.reglas_evaluadas
+                regla.model_dump(mode="json")
+                for regla in resultado.reglas_evaluadas
             ],
-
-            "perfil_utilizado":
-                perfil.model_dump(
-                    mode="json"
-                ),
-
-            "proveedor_ia":
-                resultado.proveedor_ia,
-
-            "modelo_ia":
-                resultado.modelo_ia,
+            "perfil_utilizado": perfil.model_dump(mode="json"),
+            "proveedor_ia": resultado.proveedor_ia,
+            "modelo_ia": resultado.modelo_ia,
         }
     )
 
@@ -405,54 +331,30 @@ def guardar_analisis(
 # MOCK
 # ============================================================
 
-def datos_mock():
-
+def datos_mock() -> DatosEtiqueta:
     return DatosEtiqueta(
-
         producto_detectado="Producto de prueba",
-
         tamano_porcion_g=30,
-
         calorias_por_porcion=123,
-
         grasas_g_por_porcion=3.8,
-
         grasas_saturadas_g_por_porcion=0.3,
-
         grasas_trans_g_por_porcion=0,
-
         colesterol_mg_por_porcion=None,
-
         sodio_mg_por_porcion=100,
-
         carbohidratos_g_por_porcion=19,
-
         fibra_g_por_porcion=1.6,
-
         azucares_g_por_porcion=None,
-
         proteinas_g_por_porcion=3.2,
-
         hierro_mg_por_porcion=None,
-
         calcio_mg_por_porcion=None,
-
         ingredientes_detectados=[],
-
         contiene_azucares_anadidos=False,
-
         contiene_maltodextrina=False,
-
         contiene_jarabe_maiz_alta_fructosa=False,
-
         contiene_gluten=False,
-
         contiene_leche=False,
-
         contiene_huevo=False,
-
         texto_no_legible=False,
-
         advertencias_lectura=[],
     )
 
@@ -461,38 +363,20 @@ def datos_mock():
 # EXTRACTOR
 # ============================================================
 
-def extraer_datos(
-    ruta_imagen,
-):
-
+def extraer_datos(ruta_imagen):
     if PROVEEDOR == "gemini":
-
-        if not os.getenv(
-            "GEMINI_API_KEY"
-        ):
-
+        if not os.getenv("GEMINI_API_KEY"):
             raise RuntimeError(
-                "No se encontró GEMINI_API_KEY."
+                "No se encontró GEMINI_API_KEY. Configurala en los secretos de Streamlit Cloud."
             )
 
-        extractor = GeminiExtractor(
-            model=MODELO_GEMINI
-        )
-
-        datos = extractor.extraer(
-            ruta_imagen
-        )
-
+        extractor = GeminiExtractor(model=MODELO_GEMINI)
+        datos = extractor.extraer(ruta_imagen)
         return extractor, datos
 
     if PROVEEDOR == "mock":
-
         datos = datos_mock()
-
-        extractor = MockExtractor(
-            datos
-        )
-
+        extractor = MockExtractor(datos)
         return extractor, datos
 
     raise RuntimeError(
@@ -504,26 +388,18 @@ def extraer_datos(
 # RESULTADO
 # ============================================================
 
-def mostrar_resultado(
-    resultado,
-):
-
+def mostrar_resultado(resultado) -> None:
     estado = resultado.estado.value
 
     if estado == "APTO":
-
         clase = "apto"
         icono = "✓"
         titulo = "APTO PARA TI"
-
     elif estado == "NO_APTO":
-
         clase = "no-apto"
         icono = "×"
         titulo = "NO APTO"
-
     else:
-
         clase = "revision"
         icono = "!"
         titulo = "REVISAR PRODUCTO"
@@ -533,181 +409,115 @@ def mostrar_resultado(
         <div class="result-card {clase}">
             <div class="result-icon">{icono}</div>
             <div class="result-title">{titulo}</div>
-            <div class="result-text">
-                {resultado.motivo}
-            </div>
+            <div class="result-text">{resultado.motivo}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.subheader(
-        "¿Por qué?"
-    )
+    st.subheader("¿Por qué?")
 
     for regla in resultado.reglas_evaluadas:
-
         if regla.cumplida is True:
-
             clase_regla = "ok"
             simbolo = "✓"
-
         elif regla.cumplida is False:
-
             clase_regla = "bad"
             simbolo = "✕"
-
         else:
-
             clase_regla = "review"
             simbolo = "?"
 
         st.markdown(
             f"""
             <div class="rule">
-                <div class="{clase_regla}">
-                    {simbolo} {regla.regla}
-                </div>
-                <div>
-                    {regla.detalle}
-                </div>
+                <div class="{clase_regla}">{simbolo} {regla.regla}</div>
+                <div>{regla.detalle}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
     if resultado.advertencias:
-
         st.warning(
-            "\n".join(
-                f"• {x}"
-                for x
-                in resultado.advertencias
-            )
+            "\n".join(f"• {x}" for x in resultado.advertencias)
         )
 
-    with st.expander(
-        "Ver datos detectados"
-    ):
-
+    with st.expander("Ver datos detectados"):
         datos = resultado.datos_extraidos
 
         st.write(
             "**Producto:**",
-            datos.producto_detectado
-            or "No identificado",
+            datos.producto_detectado or "No identificado",
         )
 
         c1, c2, c3 = st.columns(3)
 
         with c1:
-
             st.metric(
                 "Porción",
-                (
-                    f"{datos.tamano_porcion_g:g} g"
-                    if datos.tamano_porcion_g
-                    is not None
-                    else "—"
-                ),
+                f"{datos.tamano_porcion_g:g} g"
+                if datos.tamano_porcion_g is not None
+                else "—",
             )
 
         with c2:
-
             st.metric(
                 "Calorías",
-                (
-                    f"{datos.calorias_por_porcion:g} kcal"
-                    if datos.calorias_por_porcion
-                    is not None
-                    else "—"
-                ),
+                f"{datos.calorias_por_porcion:g} kcal"
+                if datos.calorias_por_porcion is not None
+                else "—",
             )
 
         with c3:
-
             st.metric(
                 "Sodio",
-                (
-                    f"{datos.sodio_mg_por_porcion:g} mg"
-                    if datos.sodio_mg_por_porcion
-                    is not None
-                    else "—"
-                ),
+                f"{datos.sodio_mg_por_porcion:g} mg"
+                if datos.sodio_mg_por_porcion is not None
+                else "—",
             )
 
         c1, c2, c3 = st.columns(3)
 
         with c1:
-
             st.metric(
                 "Hierro",
-                (
-                    f"{datos.hierro_mg_por_porcion:g} mg"
-                    if datos.hierro_mg_por_porcion
-                    is not None
-                    else "—"
-                ),
+                f"{datos.hierro_mg_por_porcion:g} mg"
+                if datos.hierro_mg_por_porcion is not None
+                else "—",
             )
 
         with c2:
-
             st.metric(
                 "Calcio",
-                (
-                    f"{datos.calcio_mg_por_porcion:g} mg"
-                    if datos.calcio_mg_por_porcion
-                    is not None
-                    else "—"
-                ),
+                f"{datos.calcio_mg_por_porcion:g} mg"
+                if datos.calcio_mg_por_porcion is not None
+                else "—",
             )
 
         with c3:
-
             st.metric(
                 "Proteínas",
-                (
-                    f"{datos.proteinas_g_por_porcion:g} g"
-                    if datos.proteinas_g_por_porcion
-                    is not None
-                    else "—"
-                ),
+                f"{datos.proteinas_g_por_porcion:g} g"
+                if datos.proteinas_g_por_porcion is not None
+                else "—",
             )
 
         if datos.ingredientes_detectados:
+            st.markdown("**Ingredientes detectados:**")
+            st.write(", ".join(datos.ingredientes_detectados))
 
-            st.markdown(
-                "**Ingredientes detectados:**"
-            )
-
-            st.write(
-                ", ".join(
-                    datos.ingredientes_detectados
-                )
-            )
-
-    with st.expander(
-        "Ver detalles técnicos"
-    ):
-
-        st.caption(
-            f"IA: {resultado.proveedor_ia} "
-            f"— {resultado.modelo_ia}"
-        )
+    with st.expander("Información técnica"):
+        st.write(f"Proveedor IA: {resultado.proveedor_ia}")
+        st.write(f"Modelo: {resultado.modelo_ia}")
 
 
 # ============================================================
-# CARGA
+# INICIO DE LA APP
 # ============================================================
 
 pacientes = cargar_pacientes()
-
 historial = cargar_historial()
-
-# Salvaguarda: la aplicación nunca queda bloqueada por falta de pacientes.
-if not pacientes:
-    paciente_demo = crear_paciente_demo()
-    pacientes[paciente_demo.id_paciente] = paciente_demo
 
 
 # ============================================================
@@ -725,26 +535,16 @@ st.markdown(
 )
 
 if PROVEEDOR == "gemini":
-
-    st.markdown(
-        f"""
-        <div class="nutri-provider">
-            Extractor activo: Google Gemini — {MODELO_GEMINI}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    proveedor_texto = f"Extractor activo: Google Gemini — {MODELO_GEMINI}"
 elif PROVEEDOR == "mock":
+    proveedor_texto = "Extractor activo: Mock — modo de prueba"
+else:
+    proveedor_texto = f"Extractor configurado: {PROVEEDOR}"
 
-    st.markdown(
-        """
-        <div class="nutri-provider">
-            Extractor activo: Mock — modo de prueba
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    f'<div class="nutri-provider">{proveedor_texto} · Nutri App {APP_VERSION}</div>',
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -752,36 +552,21 @@ elif PROVEEDOR == "mock":
 # ============================================================
 
 with st.sidebar:
-
-    st.subheader(
-        "Acceso de paciente"
-    )
-
-    st.caption(
-        "Selector provisional para desarrollo."
-    )
+    st.subheader("Acceso de paciente")
+    st.caption("Selector provisional para desarrollo.")
 
     paciente_id = st.selectbox(
         "Paciente",
         list(pacientes.keys()),
-        format_func=lambda pid:
-            pacientes[pid].nombre,
+        format_func=lambda pid: pacientes[pid].nombre,
     )
 
 
-paciente = pacientes[
-    paciente_id
-]
-
+paciente = pacientes[paciente_id]
 perfil = paciente.perfil
 
 if perfil is None:
-
-    st.error(
-        "Este paciente no tiene un "
-        "perfil nutricional configurado."
-    )
-
+    st.error("Este paciente no tiene un perfil nutricional configurado.")
     st.stop()
 
 
@@ -793,9 +578,7 @@ st.markdown(
     """
     <div class="scan-card">
         <div class="scan-icon">📷</div>
-        <div class="scan-title">
-            Escaneá la etiqueta nutricional
-        </div>
+        <div class="scan-title">Escaneá la etiqueta nutricional</div>
         <div class="scan-description">
             Tomá una foto clara de la tabla nutricional.
         </div>
@@ -809,22 +592,11 @@ st.markdown(
 # CÁMARA
 # ============================================================
 
-foto = st.camera_input(
-    "Escanear con cámara"
-)
-
-
-# ============================================================
-# GALERÍA
-# ============================================================
+foto = st.camera_input("Escanear con cámara")
 
 st.markdown(
     """
-    <div style="
-        text-align:center;
-        color:#667085;
-        margin:.5rem 0;
-    ">
+    <div style="text-align:center;color:#667085;margin:.5rem 0;">
         o elegí una foto
     </div>
     """,
@@ -833,24 +605,10 @@ st.markdown(
 
 archivo = st.file_uploader(
     "Galería",
-    type=[
-        "jpg",
-        "jpeg",
-        "png",
-        "webp",
-    ],
+    type=["jpg", "jpeg", "png", "webp"],
 )
 
-
-# ============================================================
-# IMAGEN
-# ============================================================
-
-imagen = (
-    foto
-    if foto is not None
-    else archivo
-)
+imagen = foto if foto is not None else archivo
 
 
 # ============================================================
@@ -858,7 +616,6 @@ imagen = (
 # ============================================================
 
 if imagen is not None:
-
     st.image(
         imagen,
         caption="Etiqueta seleccionada",
@@ -870,63 +627,32 @@ if imagen is not None:
         type="primary",
         use_container_width=True,
     ):
-
         archivo_temporal = None
 
         try:
-
             extension = os.path.splitext(
-                getattr(
-                    imagen,
-                    "name",
-                    "",
-                )
+                getattr(imagen, "name", "")
             )[1]
 
             if not extension:
-
                 extension = ".jpg"
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
                 suffix=extension,
             ) as temporal:
+                temporal.write(imagen.getbuffer())
+                archivo_temporal = temporal.name
 
-                temporal.write(
-                    imagen.getbuffer()
-                )
+            with st.spinner("La IA está leyendo la etiqueta..."):
+                extractor, datos = extraer_datos(archivo_temporal)
 
-                archivo_temporal = (
-                    temporal.name
-                )
-
-            with st.spinner(
-                "La IA está leyendo la etiqueta..."
-            ):
-
-                extractor, datos = (
-                    extraer_datos(
-                        archivo_temporal
-                    )
-                )
-
-            with st.spinner(
-                "Comparando con tu perfil..."
-            ):
-
+            with st.spinner("Comparando con tu perfil..."):
                 resultado = evaluar_producto(
-
                     datos=datos,
-
                     perfil=perfil,
-
-                    proveedor_ia=(
-                        extractor.proveedor
-                    ),
-
-                    modelo_ia=(
-                        extractor.modelo
-                    ),
+                    proveedor_ia=extractor.proveedor,
+                    modelo_ia=extractor.modelo,
                 )
 
             guardar_analisis(
@@ -936,30 +662,17 @@ if imagen is not None:
                 perfil=perfil,
             )
 
-            st.session_state[
-                "ultimo_resultado"
-            ] = resultado
+            st.session_state["ultimo_resultado"] = resultado
 
         except Exception as error:
-
-            st.error(
-                "No se pudo analizar la etiqueta."
-            )
-
+            st.error("No se pudo analizar la etiqueta.")
             st.exception(error)
 
         finally:
-
             if archivo_temporal:
-
                 try:
-
-                    os.remove(
-                        archivo_temporal
-                    )
-
+                    os.remove(archivo_temporal)
                 except OSError:
-
                     pass
 
 
@@ -967,30 +680,17 @@ if imagen is not None:
 # RESULTADO ACTUAL
 # ============================================================
 
-resultado_actual = (
-    st.session_state.get(
-        "ultimo_resultado"
-    )
-)
+resultado_actual = st.session_state.get("ultimo_resultado")
 
 if resultado_actual is not None:
-
     st.divider()
-
-    mostrar_resultado(
-        resultado_actual
-    )
+    mostrar_resultado(resultado_actual)
 
     if st.button(
         "📷 ESCANEAR OTRO PRODUCTO",
         use_container_width=True,
     ):
-
-        st.session_state.pop(
-            "ultimo_resultado",
-            None,
-        )
-
+        st.session_state.pop("ultimo_resultado", None)
         st.rerun()
 
 
@@ -998,69 +698,32 @@ if resultado_actual is not None:
 # HISTORIAL
 # ============================================================
 
-registros = historial.get(
-    paciente.id_paciente,
-    [],
-)
+registros = historial.get(paciente.id_paciente, [])
 
 if registros:
-
     st.divider()
 
-    with st.expander(
-        f"📋 Historial ({len(registros)} análisis)"
-    ):
-
-        for registro in reversed(
-            registros
-        ):
-
-            estado = registro.get(
-                "estado",
-                "REVISION_MANUAL",
-            )
+    with st.expander(f"📋 Historial ({len(registros)} análisis)"):
+        for registro in reversed(registros):
+            estado = registro.get("estado", "REVISION_MANUAL")
 
             if estado == "APTO":
-
                 icono = "🟢"
-
             elif estado == "NO_APTO":
-
                 icono = "🔴"
-
             else:
-
                 icono = "🟡"
 
-            producto = registro.get(
-                "producto",
-                "Producto",
-            )
+            producto = registro.get("producto", "Producto")
+            fecha = registro.get("fecha_hora", "")
+            motivo = registro.get("motivo", "")
 
-            fecha = registro.get(
-                "fecha_hora",
-                "",
-            )
-
-            motivo = registro.get(
-                "motivo",
-                "",
-            )
-
-            st.markdown(
-                f"**{icono} {producto}**"
-            )
+            st.markdown(f"**{icono} {producto}**")
 
             if fecha:
-
-                st.caption(
-                    fecha
-                )
+                st.caption(fecha)
 
             if motivo:
-
-                st.write(
-                    motivo
-                )
+                st.write(motivo)
 
             st.divider()
