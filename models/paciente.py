@@ -388,11 +388,6 @@ def mostrar_resultado(resultado):
 pacientes = cargar_pacientes()
 historial = cargar_historial()
 
-if not pacientes:
-    st.error("Todavía no hay pacientes configurados.")
-    st.stop()
-
-
 # ============================================================
 # ENCABEZADO
 # ============================================================
