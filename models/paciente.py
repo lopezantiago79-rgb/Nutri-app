@@ -9,8 +9,8 @@ class Paciente(BaseModel):
     """
     Modelo de dominio de un paciente.
 
-    Este archivo contiene únicamente la estructura de datos.
-    No debe ejecutar lógica de Streamlit ni acceder a archivos.
+    Este archivo solamente define los datos del paciente.
+    No contiene lógica de Streamlit ni ejecución de la aplicación.
     """
 
     id_paciente: str = Field(
