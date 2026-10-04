@@ -364,22 +364,38 @@ def datos_mock() -> DatosEtiqueta:
 # ============================================================
 
 def extraer_datos(ruta_imagen):
+
     if PROVEEDOR == "gemini":
 
         api_key = os.getenv("GEMINI_API_KEY")
 
         if not api_key:
+
             try:
-                api_key = st.secrets["GEMINI_API_KEY"]
-            except Exception:
-                api_key = None
+                if "GEMINI_API_KEY" in st.secrets:
+                    api_key = st.secrets["GEMINI_API_KEY"]
+                else:
+                    raise RuntimeError(
+                        "Streamlit Cloud no contiene el secreto "
+                        "GEMINI_API_KEY."
+                    )
+
+            except RuntimeError:
+                raise
+
+            except Exception as error:
+                raise RuntimeError(
+                    "Streamlit Cloud no pudo leer sus secretos: "
+                    f"{type(error).__name__}"
+                ) from error
 
         if not api_key:
             raise RuntimeError(
-                "No se encontró GEMINI_API_KEY en la configuración de Streamlit Cloud."
+                "El secreto GEMINI_API_KEY existe, "
+                "pero está vacío."
             )
 
-        os.environ["GEMINI_API_KEY"] = api_key
+        os.environ["GEMINI_API_KEY"] = str(api_key)
 
         extractor = GeminiExtractor(
             model=MODELO_GEMINI
@@ -399,14 +415,6 @@ def extraer_datos(ruta_imagen):
             datos
         )
 
-        return extractor, datos
-
-    raise RuntimeError(
-        f"Proveedor de IA no soportado: {PROVEEDOR}"
-    )
-    if PROVEEDOR == "mock":
-        datos = datos_mock()
-        extractor = MockExtractor(datos)
         return extractor, datos
 
     raise RuntimeError(
